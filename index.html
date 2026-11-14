@@ -1190,14 +1190,25 @@ async function applyGeneratedPlanToPatient(){
 }
 
 // ============ PACIENTE - HOME / AGENDAMENTO ============
+function forceCloseAllModals(){
+  document.querySelectorAll('.modal-backdrop').forEach(m=>m.classList.remove('open'));
+  const go=document.getElementById('goodbyeOverlay'); if(go) go.style.display='none';
+}
 function showPatientView(view){
-  ['home','booking','myappts'].forEach(v=>{
-    const el=$('patientView'+(v==='home'?'Home':v==='booking'?'Booking':'MyAppts')); if(el) el.style.display = v===view ? 'block':'none';
-  });
-  ['Home','Booking','MyAppts'].forEach(n=>{ const b=$('patTab'+n); if(b) b.classList.toggle('active', (n==='Home'&&view==='home')||(n==='Booking'&&view==='booking')||(n==='MyAppts'&&view==='myappts')); });
-  if(view==='home') renderPatientHome();
-  if(view==='booking') renderBookingNutriList();
-  if(view==='myappts') renderPatientAppointments();
+  try{ forceCloseAllModals(); }catch(e){}
+  try{
+    ['home','booking','myappts'].forEach(v=>{
+      const el=$('patientView'+(v==='home'?'Home':v==='booking'?'Booking':'MyAppts')); if(el) el.style.display = v===view ? 'block':'none';
+    });
+    ['Home','Booking','MyAppts'].forEach(n=>{ const b=$('patTab'+n); if(b) b.classList.toggle('active', (n==='Home'&&view==='home')||(n==='Booking'&&view==='booking')||(n==='MyAppts'&&view==='myappts')); });
+  }catch(e){ console.log('showPatientView erro visual', e); }
+  // Chama render de forma segura, se um falhar os botoes continuam funcionando
+  try{
+    if(view==='home') renderPatientHome();
+    if(view==='booking') renderBookingNutriList();
+    if(view==='myappts') renderPatientAppointments();
+  }catch(e){ console.log('showPatientView render erro', e); const box=document.getElementById('bookingContent')||document.getElementById('patientMyApptsList'); if(box && view!=='home'){ box.innerHTML='<div class="card" style="padding:16px"><p>Deu um erro ao carregar. Clique de novo no botao para tentar.</p><button class="btn btn-primary" onclick="showPatientView(\''+view+'\')">Tentar de novo</button></div>'; } }
+  try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(e){}
 }
 async function renderPatientHome(){
   if(!currentProfile) return;
@@ -1208,7 +1219,8 @@ async function renderPatientHome(){
   $('patientHomeAppts').innerHTML = list.slice(0,3).map(a=>`<div class="appt-card" style="margin-bottom:10px"><b>${a.nutri_name}</b> - ${a.date} as ${a.time} - ${a.type} - R$ ${(a.valor||0).toFixed(2)} - <span class="badge badge-emerald">${a.status}</span></div>`).join('') || '<p style="color:var(--text-muted)">Nenhuma consulta ainda. Agende sua primeira!</p>';
 }
 async function renderBookingNutriList(){
-  $('bookingStepBadge').textContent='Passo 1 de 4 - Escolha a nutricionista';
+  try{ forceCloseAllModals(); }catch(e){}
+  try{ $('bookingStepBadge').textContent='Passo 1 de 4 - Escolha a nutricionista'; }catch(e){}
   const { data, error } = await supabaseClient.from('profiles').select('*').eq('role','nutricionista');
   if(error){ $('bookingContent').innerHTML='<p>Erro ao carregar nutricionistas: '+error.message+'</p>'; return; }
   const list=data||[];
@@ -1217,7 +1229,15 @@ async function renderBookingNutriList(){
   bookingState._nutris=list;
 }
 async function startBookingForNutri(nutriId){
-  const nutri=(bookingState._nutris||[]).find(n=>n.id===nutriId); if(!nutri) return;
+  let nutri=(bookingState._nutris||[]).find(n=>n.id===nutriId);
+  if(!nutri){
+    try{
+      const { data } = await supabaseClient.from('profiles').select('*').eq('id', nutriId).single();
+      if(data) nutri=data;
+    }catch(e){}
+  }
+  if(!nutri){ console.log('Nutri nao encontrada', nutriId); return; }
+  try{ forceCloseAllModals(); }catch(e){}
   bookingState.nutri=nutri; bookingState.date=null; bookingState.time=null;
   $('bookingStepBadge').textContent='Passo 2 de 4 - Escolha o dia e horario';
   // Busca horarios ocupados
@@ -1227,11 +1247,13 @@ async function startBookingForNutri(nutriId){
   $('bookingContent').innerHTML=`<button class="btn btn-secondary btn-sm" onclick="renderBookingNutriList()">← Voltar</button><h4 style="margin:14px 0 8px">Escolha o dia - ${nutri.name}</h4><div class="day-grid">${days.map(d=>`<button class="day-btn" data-day="${d}" onclick="selectBookingDay('${d}', this)">${new Date(d+'T12:00').toLocaleDateString('pt-BR',{weekday:'short', day:'2-digit', month:'short'})}</button>`).join('')}</div><div id="bookingSlots" style="margin-top:16px"></div><div id="bookingSlotsAction" style="margin-top:12px"></div>`;
 }
 function selectBookingDay(date, btn){
-  bookingState.date=date; document.querySelectorAll('.day-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected');
+  try{ forceCloseAllModals(); }catch(e){}
+  bookingState.date=date; bookingState.time=null;
+  document.querySelectorAll('.day-btn').forEach(b=>b.classList.remove('selected')); if(btn) btn.classList.add('selected');
   const slots=['08:00','09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00','18:00'];
   $('bookingSlots').innerHTML=`<h4 style="margin-bottom:8px">Horarios - ${new Date(date+'T12:00').toLocaleDateString('pt-BR')}</h4><div class="slot-grid">${slots.map(s=>{ const occ=(bookingState._occupied||[]).includes(date+'|'+s); return `<button class="slot-btn ${occ?'occupied':''}" ${occ?'disabled':''} onclick="selectBookingSlot('${s}', this)">${s}</button>`; }).join('')}</div>`;
 }
-function selectBookingSlot(time, btn){ bookingState.time=time; document.querySelectorAll('.slot-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); $('bookingSlotsAction').innerHTML=`<button class="btn btn-primary" onclick="bookingGoToConvenio()">Continuar → Convenio / Pagamento</button>`; }
+function selectBookingSlot(time, btn){ bookingState.time=time; document.querySelectorAll('.slot-btn').forEach(b=>b.classList.remove('selected')); if(btn) btn.classList.add('selected'); $('bookingSlotsAction').innerHTML=`<button class="btn btn-primary" onclick="bookingGoToConvenio()">Continuar → Convenio / Pagamento</button>`; }
 function bookingGoToConvenio(){
   if(!bookingState.date||!bookingState.time){ alert('Escolha dia e horario'); return; }
   $('bookingStepBadge').textContent='Passo 3 de 4 - Convenio e pagamento';
@@ -1240,10 +1262,17 @@ function bookingGoToConvenio(){
   $('bookingContent').innerHTML=`<button class="btn btn-secondary btn-sm" onclick="startBookingForNutri('${nutri.id}')">← Voltar</button><h4 style="margin:14px 0 8px">Como vai ser a consulta?</h4><div class="radio-row"><label class="radio-pill active" id="bkPillPart"><input type="radio" name="bkType" value="particular" checked onchange="onBookingConvenioChange()"> Particular - R$ ${(nutri.valor_particular||180).toFixed(2)}</label>${nutri.accepts_convenio? `<label class="radio-pill" id="bkPillConv"><input type="radio" name="bkType" value="convenio" onchange="onBookingConvenioChange()"> Convenio</label>`:''}</div><div id="bkConvenioBox" style="display:none;margin-top:14px" class="convenio-box"><label style="font-weight:600;font-size:.86rem">Selecione seu convenio</label><div class="convenio-grid">${convenios.map(c=>`<label class="convenio-chip"><input type="radio" name="bkConvenio" value="${c}" onchange="onBookingConvenioChange()"> ${c}</label>`).join('')}<label class="convenio-chip"><input type="radio" name="bkConvenio" value="Outro" onchange="onBookingConvenioChange()"> Outro</label></div><div class="form-group" style="margin-top:10px"><label>Plano</label><input id="bkPlano" class="form-control" placeholder="Ex: Amil Ouro" value="${currentProfile.plano||''}"></div><div style="font-size:.82rem;color:var(--text-muted);margin-top:8px">Valor pelo convenio: confirmar com a clinica. Para este sistema, o valor fica como R$ 0 ate confirmacao.</div></div><div style="margin-top:16px"><h4>Forma de pagamento</h4><div class="radio-row" style="margin-top:8px"><label class="radio-pill active"><input type="radio" name="bkPay" value="PIX" checked> PIX</label><label class="radio-pill"><input type="radio" name="bkPay" value="Cartao"> Cartao</label><label class="radio-pill"><input type="radio" name="bkPay" value="Dinheiro"> Dinheiro na clinica</label></div><p style="font-size:.78rem;color:var(--text-muted);margin-top:8px">Pagamento demonstrativo: neste MVP, a consulta e confirmada e marcada como pendente ate a clinica confirmar o recebimento.</p></div><button class="btn btn-primary" style="margin-top:16px" onclick="bookingConfirmConvenio()">Confirmar agendamento</button>`;
 }
 function onBookingConvenioChange(){
-  const type=document.querySelector('input[name="bkType"]:checked')?.value;
-  $('bkConvenioBox').style.display = type==='convenio' ? 'block':'none';
-  document.getElementById('bkPillPart')?.classList.toggle('active', type==='particular');
-  document.getElementById('bkPillConv')?.classList.toggle('active', type==='convenio');
+  try{
+    const checked=document.querySelector('input[name="bkType"]:checked');
+    const type=checked ? checked.value : 'particular';
+    const box=document.getElementById('bkConvenioBox'); if(box) box.style.display = type==='convenio' ? 'block':'none';
+    const p1=document.getElementById('bkPillPart'); if(p1) p1.classList.toggle('active', type==='particular');
+    const p2=document.getElementById('bkPillConv'); if(p2) p2.classList.toggle('active', type==='convenio');
+    // Atualiza visual dos radios de convenio tambem
+    document.querySelectorAll('input[name="bkConvenio"]').forEach(r=>{
+      const lab=r.closest('label'); if(lab) lab.classList.toggle('checked', r.checked);
+    });
+  }catch(e){ console.log('onBookingConvenioChange erro', e); }
 }
 function bookingBackToNutris(){ renderBookingNutriList(); }
 function bookingBackToSlots(){ startBookingForNutri(bookingState.nutri.id); }
