@@ -437,7 +437,7 @@ th{background:var(--bg-subtle);font-weight:700;color:var(--text-secondary);font-
 
 <div id="aiModal" class="modal-backdrop"><div class="modal-dialog modal-lg"><div class="modal-header"><h3>🤖 IA Gemini - Gerar dieta</h3><button class="modal-close" onclick="closeModal('aiModal')">×</button></div><div class="modal-body">
 <div class="alert-box alert-info">A IA usa o protocolo, a anamnese e os calculos do paciente ativo para montar a dieta. Voce pode revisar tudo antes de aplicar.</div>
-<div class="form-grid" style="margin-top:14px"><div class="form-group"><label>Seguranca da IA</label><div class="alert-box alert-success" style="margin:0">🔒 IA processada no servidor via Supabase Edge Function. Nenhuma chave fica no navegador. Voce so precisa estar logada.</div></div><div class="form-group"><label>Protocolo para a IA usar</label><select id="aiProtocolSelect" class="form-control"></select></div><div class="form-group"><label>Modelo</label><select id="aiModelSelect" class="form-control"><option value="gemini-2.5-flash">gemini-2.5-flash (rapido)</option><option value="gemini-2.5-pro">gemini-2.5-pro (mais completo)</option><option value="gemini-1.5-flash">gemini-1.5-flash</option></select></div><div class="form-group full"><label>Instrucoes extras (opcional)</label><textarea id="aiExtra" class="form-control" placeholder="Ex: Paciente nao gosta de peixe, prefere refeicoes rapidas..."></textarea></div></div>
+<div class="form-grid" style="margin-top:14px"><div class="form-group"><label>Seguranca da IA</label><div class="alert-box alert-success" style="margin:0">🔒 IA processada no servidor via Supabase Edge Function. Nenhuma chave fica no navegador. Voce so precisa estar logada.</div></div><div class="form-group"><label>Protocolo para a IA usar</label><select id="aiProtocolSelect" class="form-control"></select></div><div class="form-group"><label>Modelo</label><select id="aiModelSelect" class="form-control"><option value="gemini-3.8-flash" selected>gemini-3.8-flash (atual - recomendado)</option><option value="gemini-3-flash">gemini-3-flash (alternativo)</option><option value="gemini-2.0-flash">gemini-2.0-flash (legado)</option></select></div><div class="form-group full"><label>Instrucoes extras (opcional)</label><textarea id="aiExtra" class="form-control" placeholder="Ex: Paciente nao gosta de peixe, prefere refeicoes rapidas..."></textarea></div></div>
 <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="generateDietWithAI()">✨ Gerar dieta com IA (servidor seguro)</button><span style="font-size:.78rem;color:var(--text-muted);align-self:center">Sem chave no navegador. Processamento via Edge Function.</span></div>
 <div id="aiResultBox" style="margin-top:14px"></div>
 <div id="aiStatus" style="margin-top:10px;font-size:.84rem"></div>
@@ -1110,7 +1110,7 @@ function toggleApiKeyVisibility(){}
 function openAiModal(){ populateAiProtocolSelect(); openModal('aiModal'); }
 function saveAiConfigOnly(){ showToast('IA ja esta configurada no servidor. Nao precisa colar chave.'); }
 async function testApiKey(){ $('aiStatus').textContent='IA via servidor - nao precisa testar chave aqui. A chave esta no Supabase Secrets.'; }
-function listGeminiModels(){ return ['gemini-2.5-flash','gemini-2.5-pro','gemini-1.5-flash']; }
+function listGeminiModels(){ return ['gemini-3.8-flash','gemini-3-flash','gemini-2.0-flash']; }
 function preferredModelOrder(){ return listGeminiModels(); }
 function getCachedGeminiWorking(){ return localStorage.getItem('nutriflow_gemini_working')||''; }
 function setCachedGeminiWorking(m){ localStorage.setItem('nutriflow_gemini_working', m); }
@@ -1123,7 +1123,7 @@ async function callGeminiViaEdgeFunction(prompt, model){
   const res = await fetchWithTimeout(SUPABASE_URL + '/functions/v1/gemini-diet', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SUPABASE_PUBLISHABLE_KEY },
-    body: JSON.stringify({ prompt: prompt, model: model || 'gemini-2.5-flash' })
+    body: JSON.stringify({ prompt: prompt, model: model || 'gemini-3.8-flash' })
   }, 60000);
   const data = await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(data.error || 'Erro na IA no servidor: ' + res.status);
@@ -1132,7 +1132,7 @@ async function callGeminiViaEdgeFunction(prompt, model){
   if(c && c.text) return c.text;
   throw new Error('Resposta vazia da IA no servidor.');
 }
-async function callGeminiWithFallback(prompt, apiKey){ return callGeminiViaEdgeFunction(prompt, document.getElementById('aiModelSelect') ? document.getElementById('aiModelSelect').value : 'gemini-2.5-flash'); }
+async function callGeminiWithFallback(prompt, apiKey){ return callGeminiViaEdgeFunction(prompt, document.getElementById('aiModelSelect') ? document.getElementById('aiModelSelect').value : 'gemini-3.8-flash'); }
 function generateDietWithLocalEngine(){
   const p=getActivePatient(); if(!p) return null;
   const calc=p.calculations||{ targetKcal:1800, protGrams:130, carbGrams:170, fatGrams:55 };
@@ -1158,7 +1158,7 @@ async function generateDietWithAI(){
   $('aiResultBox').innerHTML='';
   const prompt=`Voce e uma nutricionista. Crie uma dieta para ${p.name}, objetivo ${p.goal}, ${p.sex==='F'?'feminino':'masculino'}, idade ${calc.age||30}, peso ${calc.weight||70}kg, altura ${calc.height||165}cm. Meta: ${calc.targetKcal||1800} kcal, proteina ${calc.protGrams||120}g, carbo ${calc.carbGrams||170}g, gordura ${calc.fatGrams||55}g. ${buildProtocolPromptBlock(pr)} Anamnese: ${JSON.stringify(p.anamnesis||{})}. Extras: ${extra}. Responda SOMENTE em JSON valido neste formato: {"meals":[{"name":"Cafe da manha","time":"07:00","items":[{"foodName":"Aveia em flocos","qty":40,"kcal":394,"prot":13.9,"carb":66.6,"fat":8.5}]}],"notes":"..."} Use alimentos brasileiros da base TACO quando possivel.`;
   try{
-    const model = document.getElementById('aiModelSelect') ? document.getElementById('aiModelSelect').value : 'gemini-2.5-flash';
+    const model = document.getElementById('aiModelSelect') ? document.getElementById('aiModelSelect').value : 'gemini-3.8-flash';
     const txtResp = await callGeminiViaEdgeFunction(prompt, model);
     const jsonStr = txtResp.slice(txtResp.indexOf('{'), txtResp.lastIndexOf('}')+1);
     const parsed = JSON.parse(jsonStr);
