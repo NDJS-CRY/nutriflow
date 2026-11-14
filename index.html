@@ -1154,7 +1154,7 @@ async function generateDietWithAI(){
   const pr=getSelectedProtocol();
   const calc=p.calculations||{};
   const extra=document.getElementById('aiExtra') ? document.getElementById('aiExtra').value : '';
-  $('aiStatus').textContent='Gerando dieta no servidor seguro... aguarde.';
+  $('aiStatus').textContent='Gerando dieta no servidor seguro... Se o modelo 3.8 estiver lotado, o servidor tenta sozinho o proximo modelo.';
   $('aiResultBox').innerHTML='';
   const prompt=`Voce e uma nutricionista. Crie uma dieta para ${p.name}, objetivo ${p.goal}, ${p.sex==='F'?'feminino':'masculino'}, idade ${calc.age||30}, peso ${calc.weight||70}kg, altura ${calc.height||165}cm. Meta: ${calc.targetKcal||1800} kcal, proteina ${calc.protGrams||120}g, carbo ${calc.carbGrams||170}g, gordura ${calc.fatGrams||55}g. ${buildProtocolPromptBlock(pr)} Anamnese: ${JSON.stringify(p.anamnesis||{})}. Extras: ${extra}. Responda SOMENTE em JSON valido neste formato: {"meals":[{"name":"Cafe da manha","time":"07:00","items":[{"foodName":"Aveia em flocos","qty":40,"kcal":394,"prot":13.9,"carb":66.6,"fat":8.5}]}],"notes":"..."} Use alimentos brasileiros da base TACO quando possivel.`;
   try{
@@ -1166,10 +1166,23 @@ async function generateDietWithAI(){
     $('aiResultBox').innerHTML=`<div class="alert-box alert-success">Dieta gerada no servidor! Revise e clique em Aplicar.</div><pre style="white-space:pre-wrap;font-size:.82rem;background:#f8fafc;padding:12px;border-radius:8px;max-height:300px;overflow:auto">${JSON.stringify(parsed,null,2)}</pre><button class="btn btn-primary" style="margin-top:10px" onclick="applyGeneratedPlanToPatient()">Aplicar esta dieta no paciente</button>`;
     $('aiStatus').textContent='Pronta!';
   }catch(e){
+    const msg = String(e.message || e);
+    const isOverload = msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('overload') || msg.toLowerCase().includes('503') || msg.toLowerCase().includes('429') || msg.toLowerCase().includes('tempor') || msg.toLowerCase().includes('try again');
+    if(isOverload){
+      $('aiStatus').textContent='Modelo com alta demanda temporaria no Google. Aguarde 30 segundos e clique em Tentar de novo.';
+      $('aiResultBox').innerHTML=`<div class="alert-box alert-info"><b>Alta demanda temporaria no Google.</b><br>Isso nao e erro de chave nem de Edge Function. O modelo 3.8 esta lotado neste minuto. O servidor ja tentou os modelos alternativos. Aguarde 30 segundos e clique em Tentar de novo.<br><br><small>Detalhe tecnico: ` + msg.slice(0,220) + `</small></div><button class="btn btn-primary" style="margin-top:10px" onclick="generateDietWithAI()">Tentar de novo agora</button><button class="btn btn-secondary" style="margin-top:10px" onclick="useLocalDietBackup()">Usar dieta local de backup</button>`;
+      return;
+    }
     const local=generateDietWithLocalEngine(); lastGeneratedDiet=local;
-    $('aiStatus').textContent='Servidor da IA indisponivel ('+e.message+'). Usei motor local. Confira se a Edge Function gemini-diet esta criada e o segredo GEMINI_API_KEY esta salvo no Supabase.';
+    $('aiStatus').textContent='Servidor da IA indisponivel ('+msg+'). Usei motor local. Confira se a Edge Function gemini-diet esta criada e o segredo GEMINI_API_KEY esta salvo no Supabase.';
     $('aiResultBox').innerHTML=`<div class="alert-box alert-info">IA indisponivel, gerada dieta local de backup.</div><button class="btn btn-primary" style="margin-top:10px" onclick="applyGeneratedPlanToPatient()">Aplicar dieta local</button>`;
   }
+}
+
+function useLocalDietBackup(){
+  const local=generateDietWithLocalEngine(); lastGeneratedDiet=local;
+  document.getElementById('aiResultBox').innerHTML=`<div class="alert-box alert-info">Dieta local pronta.</div><button class="btn btn-primary" style="margin-top:10px" onclick="applyGeneratedPlanToPatient()">Aplicar dieta local</button>`;
+}
 }
 async function applyGeneratedPlanToPatient(){
   const p=getActivePatient(); if(!p||!lastGeneratedDiet) return;
