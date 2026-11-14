@@ -1183,7 +1183,6 @@ function useLocalDietBackup(){
   const local=generateDietWithLocalEngine(); lastGeneratedDiet=local;
   document.getElementById('aiResultBox').innerHTML=`<div class="alert-box alert-info">Dieta local pronta.</div><button class="btn btn-primary" style="margin-top:10px" onclick="applyGeneratedPlanToPatient()">Aplicar dieta local</button>`;
 }
-}
 async function applyGeneratedPlanToPatient(){
   const p=getActivePatient(); if(!p||!lastGeneratedDiet) return;
   p.diet={ meals: lastGeneratedDiet.meals, notes: lastGeneratedDiet.notes||'' };
