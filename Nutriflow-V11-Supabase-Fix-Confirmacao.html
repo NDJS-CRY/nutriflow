@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NutriFlow v11 — Supabase</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,system-ui,sans-serif;background:#f8fafc;color:#0f172a}
+a{color:#0284c7}.top{height:64px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:sticky;top:0;z-index:20}
+.wrap{max-width:1080px;margin:0 auto;padding:20px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}.btn-p{background:#0284c7;color:#fff}.btn-s{background:#f1f5f9;border:1px solid #e2e8f0}.btn-d{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+.input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;margin-top:6px}.label{font-size:.82rem;font-weight:600;margin-top:12px;display:block}
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:.76rem;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
+.badge-w{background:#fffbeb;color:#92400e;border-color:#fde68a}.badge-b{background:#eff6ff;color:#1e40af;border-color:#bfdbfe}
+.slot{padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;font-weight:600}.slot.sel{background:#0284c7;color:#fff}.slot.occ{background:#f1f5f9;color:#94a3b8;text-decoration:line-through;cursor:not-allowed}
+.day{padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;text-align:center}.day.sel{background:#0284c7;color:#fff}
+.auth{max-width:460px;margin:30px auto}.tabs{display:flex;gap:8px;margin-bottom:14px}.tabs button{flex:1;padding:10px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;font-weight:700}.tabs button.on{background:#0284c7;color:#fff}
+.alert{padding:12px;border-radius:12px;margin:12px 0;font-size:.88rem}.alert-ok{background:#ecfdf5;border:1px solid #a7f3d0}.alert-err{background:#fef2f2;border:1px solid #fecaca}.alert-info{background:#eff6ff;border:1px solid #bfdbfe}
+.stars{font-size:28px;letter-spacing:4px;cursor:pointer}.stars span{color:#e2e8f0}.stars span.on{color:#f59e0b}
+.config{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px;margin:14px 0;font-size:.88rem}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ===== CONFIGURE AQUI ===== -->
+<script>
+// 👇 PASSO 2 — COLE AQUI SUAS 2 CHAVES DO SUPABASE (as que você copiou no Passo 1)
+const SUPABASE_URL = "https://zqvcvtczfanhdjicidnr.supabase.co"; // ex: https://zqvctczfanhdjicidnr.supabase.co
+const SUPABASE_KEY = "sb_publishable_5LTb36BErFb0fSWhWbU5Vg_FxM22alu"; // ex: sb_publishable_5LTb...
+// 👆 Se deixar COLE_AQUI, o site vai mostrar o aviso amarelo e não vai logar
+</script>
+
+<div class="top"><div style="display:flex;gap:10px;align-items:center"><div style="width:38px;height:38px;background:#0284c7;color:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🥗</div><div><strong>NutriFlow v11</strong><div style="font-size:.75rem;color:#64748b" id="topSub">Supabase • Funcional</div></div></div><div style="display:flex;gap:8px;align-items:center"><span id="topName" style="font-size:.86rem;font-weight:600"></span><button class="btn btn-s" id="btnHome" onclick="showView('home')">Início</button><button class="btn btn-s" onclick="showView('agendar')">+ Agendar</button><button class="btn btn-s" onclick="showView('minhas')">Minhas consultas</button><button class="btn btn-d" onclick="logout()">Sair</button></div></div>
+
+<div class="wrap">
+<div id="configWarn" class="config hidden">⚠️ <b>Configure o Supabase:</b> abra esse arquivo, procure por <code>COLE_AQUI_SUA_URL</code> e <code>COLE_AQUI_SUA_PUBLISHABLE_KEY</code> no topo e cole sua URL e sua Publishable Key do Passo 1. Depois salve e recarregue. Sem isso, o login não funciona.</div>
+
+<!-- AUTH -->
+<div id="authBox" class="auth">
+  <h1 style="font-size:1.5rem">Agende sua consulta em poucos passos.</h1><p style="color:#64748b;font-size:.9rem;margin:8px 0 14px">Convênio aceito = sem pagamento. Só particular = pagamento na hora + comprovante.</p>
+  <div class="tabs"><button id="tabNutri" class="on" onclick="setAuthMode('nutricionista')">Sou Nutricionista</button><button id="tabPac" onclick="setAuthMode('paciente')">Sou Paciente</button></div>
+  <div class="tabs"><button id="tabLogin" class="on" onclick="setAuthTab('login')">Entrar</button><button id="tabReg" onclick="setAuthTab('register')">Cadastrar</button><button id="tabForgot" onclick="setAuthTab('forgot')">Esqueci senha</button></div>
+  <div class="card" id="loginForm">
+    <label class="label">E-mail</label><input id="loginEmail" class="input" type="email" placeholder="voce@exemplo.com">
+    <label class="label">Senha</label><input id="loginPw" class="input" type="password" placeholder="Sua senha">
+    <button class="btn btn-p" style="width:100%;margin-top:14px" onclick="doLogin()">Entrar →</button>
+    <p style="font-size:.78rem;color:#64748b;margin-top:10px" id="authHint">Entrando como nutricionista. Troque acima para paciente.</p>
+  </div>
+  <div class="card hidden" id="regForm">
+    <label class="label">Nome completo *</label><input id="regName" class="input">
+    <div id="regNutriFields">
+      <label class="label">CRN *</label><input id="regCrn" class="input" placeholder="CRN-3 12345">
+      <label class="label">Especialidade</label><input id="regEsp" class="input" value="Nutrição Clínica">
+      <label class="label">Valor consulta particular (R$) *</label><input id="regValor" class="input" type="number" value="180">
+      <label class="label">Aceita convênio?</label><select id="regAceita" class="input"><option value="true">Sim, aceito convênio</option><option value="false">Não, só particular</option></select>
+      <label class="label">Quais convênios aceita? (separados por vírgula)</label><input id="regConvenios" class="input" placeholder="Unimed, Amil, Bradesco Saúde">
+    </div>
+    <div id="regPacFields" class="hidden">
+      <label class="label">Seu convênio</label><select id="regConvenioPac" class="input"><option value="">Não tenho / Particular</option><option>Unimed</option><option>Amil</option><option>Bradesco Saúde</option><option>SulAmérica</option><option>Hapvida</option><option>NotreDame Intermédica</option><option>Porto Seguro Saúde</option><option>Allianz Saúde</option><option>Care Plus</option><option>Omint</option><option>GEAP</option><option>Outro</option></select>
+      <label class="label">Plano</label><input id="regPlanoPac" class="input" placeholder="Ex: Nacional">
+    </div>
+    <label class="label">Telefone</label><input id="regPhone" class="input" placeholder="(11) 98765-4321">
+    <label class="label">E-mail *</label><input id="regEmail" class="input" type="email">
+    <label class="label">Senha * (mín. 6)</label><input id="regPw" class="input" type="password">
+    <button class="btn btn-p" style="width:100%;margin-top:14px" onclick="doRegister()">Criar minha conta →</button>
+  </div>
+  <div class="card hidden" id="forgotForm">
+    <label class="label">E-mail cadastrado</label><input id="forgotEmail" class="input" type="email">
+    <button class="btn btn-p" style="width:100%;margin-top:14px" onclick="doForgot()">Enviar link de recuperação</button>
+    <p style="font-size:.8rem;color:#64748b;margin-top:10px">Você vai receber um e-mail do Supabase com o link para criar nova senha.</p>
+  </div>
+  <div id="authMsg"></div>
+</div>
+
+<!-- APP -->
+<div id="appBox" class="hidden">
+  <div id="viewHome"><h2 id="homeTitle">Olá 👋</h2><p id="homeSub" style="color:#64748b;margin:6px 0 14px"></p><div class="grid"><div class="card"><h3>📅 Agendar</h3><p style="font-size:.86rem;color:#64748b;margin:8px 0">Escolha nutricionista, dia e horário.</p><button class="btn btn-p" onclick="showView('agendar')">Agendar agora →</button></div><div class="card"><h3>📋 Minhas consultas</h3><p id="homeNext" style="font-size:.86rem;color:#64748b;margin:8px 0"></p><button class="btn btn-s" onclick="showView('minhas')">Ver minhas consultas</button></div></div><h3 style="margin:20px 0 12px" id="homeNutriTitle">Nutricionistas disponíveis</h3><div id="homeNutris" class="grid"></div><div id="nutriAgendamentosBox" class="hidden"><h3 style="margin:20px 0 12px">📅 Agendamentos recebidos (nutricionista)</h3><div id="nutriAgendamentos"></div></div></div>
+
+  <div id="viewAgendar" class="hidden"><h2>Agendar consulta</h2><p style="color:#64748b;font-size:.88rem;margin:6px 0 12px">1 • Nutricionista → 2 • Dia e horário → 3 • Convênio / Pagamento → 4 • Comprovante</p>
+    <div id="bookStep1"><div id="bookNutris" class="grid"></div></div>
+    <div id="bookStep2" class="hidden"><h3 id="bookNutriTitle"></h3><div id="bookDays" class="grid" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr));margin:12px 0"></div><div id="bookSlots" class="grid" style="grid-template-columns:repeat(auto-fill,minmax(90px,1fr))"></div><div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-s" onclick="backToNutris()">← Trocar nutricionista</button><button class="btn btn-p" id="btnToConvenio" disabled onclick="goToConvenio()">Continuar → Convênio / Pagamento</button></div></div>
+    <div id="bookStep3" class="hidden"><h3>Convênio ou Particular?</h3><p id="bookConvInfo" style="font-size:.88rem;color:#64748b;margin:8px 0"></p><label class="label">Qual convênio você possui?</label><select id="bookConvSelect" class="input" onchange="onConvChange()"></select><label class="label">Plano</label><input id="bookPlano" class="input" placeholder="Ex: Nacional"><div id="bookConvResult"></div><div id="payBox" class="card hidden" style="margin-top:14px"><h3>💳 Pagamento — Particular</h3><p style="font-size:.86rem;color:#64748b">Só confirma após pagamento aprovado.</p><p style="font-size:1.1rem;font-weight:700;margin:10px 0">Valor: <span id="payValor"></span></p><label class="label">Forma</label><select id="payMethod" class="input"><option value="pix">PIX</option><option value="cartao">Cartão de crédito</option></select><button class="btn btn-p" style="margin-top:12px" id="payBtn" onclick="payAndConfirm()">Pagar e confirmar →</button><p id="payStatus" style="font-size:.84rem;margin-top:10px"></p></div><div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-s" onclick="backToSlots()">← Voltar</button><button class="btn btn-p hidden" id="btnConfirmConv" onclick="confirmConvenio()">Confirmar agendamento (convênio) →</button></div></div>
+    <div id="bookStep4" class="hidden"><div id="receiptArea"></div></div>
+  </div>
+
+  <div id="viewMinhas" class="hidden"><h2>Minhas consultas</h2><div id="myAppts" style="display:grid;gap:12px;margin-top:14px"></div></div>
+</div>
+
+<!-- AVALIAÇÃO -->
+<div id="evalBox" class="card hidden" style="max-width:520px;margin:20px auto"><h3>Avaliar consulta</h3><p id="evalText" style="font-size:.88rem;color:#64748b;margin:8px 0"></p><div class="stars" id="evalStars"><span data-v="1" onclick="setStars(1)">★</span><span data-v="2" onclick="setStars(2)">★</span><span data-v="3" onclick="setStars(3)">★</span><span data-v="4" onclick="setStars(4)">★</span><span data-v="5" onclick="setStars(5)">★</span></div><label class="label">Comentário</label><textarea id="evalComment" class="input" rows="3"></textarea><div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-s" onclick="document.getElementById('evalBox').classList.add('hidden')">Cancelar</button><button class="btn btn-p" onclick="submitEval()">Enviar avaliação</button></div></div>
+
+</div>
+
+<script>
+let supabaseClient=null, currentUser=null, currentProfile=null, currentTipo='paciente';
+let authMode='nutricionista', authTab='login', booking={nutri:null,date:null,time:null,convenio:'',plano:'',tipo:'',valor:0}, evalTarget=null, evalStars=5;
+const fmtBRL=v=>'R$ '+Number(v||0).toFixed(2).replace('.',',');
+const fmtDate=iso=>{try{const [y,m,d]=iso.split('-');return d+'/'+m+'/'+y}catch{return iso}};
+function showMsg(html,ok=true){document.getElementById('authMsg').innerHTML=`<div class="alert ${ok?'alert-ok':'alert-err'}">${html}</div>`}
+function init(){ if(!SUPABASE_URL||SUPABASE_URL.includes('COLE_AQUI')||!SUPABASE_KEY||SUPABASE_KEY.includes('COLE_AQUI')){document.getElementById('configWarn').classList.remove('hidden');return;} supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY); checkSession(); }
+function setAuthMode(m){authMode=m;document.getElementById('tabNutri').classList.toggle('on',m==='nutricionista');document.getElementById('tabPac').classList.toggle('on',m==='paciente');document.getElementById('regNutriFields').classList.toggle('hidden',m!=='nutricionista');document.getElementById('regPacFields').classList.toggle('hidden',m!=='paciente');document.getElementById('authHint').textContent='Entrando como '+m+'.';}
+function setAuthTab(t){authTab=t;['tabLogin','tabReg','tabForgot'].forEach(id=>document.getElementById(id).classList.toggle('on', (t==='login'&&id==='tabLogin')||(t==='register'&&id==='tabReg')||(t==='forgot'&&id==='tabForgot')));document.getElementById('loginForm').classList.toggle('hidden',t!=='login');document.getElementById('regForm').classList.toggle('hidden',t!=='register');document.getElementById('forgotForm').classList.toggle('hidden',t!=='forgot');}
+async function doRegister(){
+  if(!supabaseClient){showMsg('Configure as chaves do Supabase no topo do arquivo primeiro.',false);return;}
+  const nome=document.getElementById('regName').value.trim(), email=document.getElementById('regEmail').value.trim().toLowerCase(), pw=document.getElementById('regPw').value, phone=document.getElementById('regPhone').value.trim();
+  if(!nome||!email||!pw||pw.length<6){showMsg('Preencha nome, e-mail válido e senha com mín. 6 caracteres.',false);return;}
+  let meta={tipo:authMode,nome,telefone:phone};
+  if(authMode==='nutricionista'){meta.crn=document.getElementById('regCrn').value.trim();meta.especialidade=document.getElementById('regEsp').value.trim()||'Nutrição Clínica';meta.valor_particular=parseFloat(document.getElementById('regValor').value||'180')||180;meta.aceita_convenio=document.getElementById('regAceita').value==='true';if(!meta.crn){showMsg('Informe o CRN.',false);return;}}
+  else{meta.convenio=document.getElementById('regConvenioPac').value;meta.plano=document.getElementById('regPlanoPac').value.trim();}
+  showMsg('Criando sua conta...');
+  const {data,error}=await supabaseClient.auth.signUp({email,password:pw,options:{data:meta}});
+  if(error){showMsg('Erro: '+error.message,false);return;}
+  // Se for nutricionista, salva convênios
+  if(authMode==='nutricionista' && data.user){
+    const convText=document.getElementById('regConvenios').value.trim();
+    if(convText){const rows=convText.split(',').map(s=>s.trim()).filter(Boolean).map(c=>({nutricionista_id:data.user.id,convenio:c})); await supabaseClient.from('nutricionista_convenios').insert(rows);}
+  }
+  showMsg('✅ Conta criada! Agora faça login. Se o Supabase pedir confirmação, verifique seu e-mail.');
+  setAuthTab('login'); document.getElementById('loginEmail').value=email;
+}
+async function doLogin(){
+  if(!supabaseClient){showMsg('Configure as chaves primeiro.',false);return;}
+  const email=document.getElementById('loginEmail').value.trim().toLowerCase(), pw=document.getElementById('loginPw').value;
+  const {data,error}=await supabaseClient.auth.signInWithPassword({email,password:pw});
+  if(error){showMsg('Erro: '+error.message+' — Se acabou de criar, verifique o e-mail de confirmação.',false);return;}
+  await afterLogin(data.user);
+}
+async function doForgot(){
+  if(!supabaseClient)return; const email=document.getElementById('forgotEmail').value.trim();
+  const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin + window.location.pathname});
+  if(error) showMsg('Erro: '+error.message,false); else showMsg('✅ Link enviado para '+email+'. Verifique sua caixa de entrada e spam.');
+}
+async function checkSession(){
+  // FIX confirmação por e-mail: troca o ?code= do link por uma sessão válida
+  try{
+    const params=new URLSearchParams(window.location.search);
+    const code=params.get('code');
+    if(code){
+      const {error}=await supabaseClient.auth.exchangeCodeForSession(code);
+      if(!error){ window.history.replaceState({},'',window.location.pathname); }
+      else{ console.log('exchange erro',error.message); }
+    }
+    // Suporte a link antigo com #access_token=...
+    if(window.location.hash && window.location.hash.includes('access_token')){
+      await new Promise(r=>setTimeout(r,600));
+      window.history.replaceState({},'',window.location.pathname);
+    }
+  }catch(e){ console.log('confirm link',e); }
+  const {data}=await supabaseClient.auth.getSession(); if(data.session) await afterLogin(data.session.user);
+}
+async function afterLogin(user){
+  currentUser=user; const tipo=user.user_metadata?.tipo || authMode; currentTipo=tipo;
+  let profile=null;
+  if(tipo==='nutricionista'){ const {data}=await supabaseClient.from('nutricionistas').select('*').eq('id',user.id).single(); profile=data; }
+  else{ const {data}=await supabaseClient.from('pacientes').select('*').eq('id',user.id).single(); profile=data; }
+  // Fallback: se trigger não criou, cria agora
+  if(!profile){
+    if(tipo==='nutricionista'){ const m=user.user_metadata||{}; const {data}=await supabaseClient.from('nutricionistas').insert({id:user.id,nome:m.nome||'Nutricionista',crn:m.crn||'',email:user.email,telefone:m.telefone||'',especialidade:m.especialidade||'Nutrição Clínica',valor_particular:m.valor_particular||180,aceita_convenio:m.aceita_convenio!==false}).select().single(); profile=data; }
+    else{ const m=user.user_metadata||{}; const {data}=await supabaseClient.from('pacientes').insert({id:user.id,nome:m.nome||'Paciente',email:user.email,telefone:m.telefone||'',convenio:m.convenio||'',plano:m.plano||''}).select().single(); profile=data; }
+  }
+  currentProfile=profile;
+  document.getElementById('authBox').classList.add('hidden'); document.getElementById('appBox').classList.remove('hidden');
+  document.getElementById('topName').textContent=profile?.nome||user.email;
+  showView('home'); renderHome();
+}
+async function logout(){ if(supabaseClient) await supabaseClient.auth.signOut(); location.reload(); }
+function showView(v){ ['viewHome','viewAgendar','viewMinhas'].forEach(id=>document.getElementById(id).classList.toggle('hidden', id!==('view'+v.charAt(0).toUpperCase()+v.slice(1)))); if(v==='home') renderHome(); if(v==='agendar') renderBookNutris(); if(v==='minhas') renderMyAppts(); }
+async function fetchNutris(){ const {data,error}=await supabaseClient.from('nutricionistas').select('*, nutricionista_convenios(*)').order('nome'); if(error){console.error(error);return[];} return data||[]; }
+function nutriConvenios(n){ if(n.nutricionista_convenios && n.nutricionista_convenios.length) return n.nutricionista_convenios.map(r=>r.convenio); return []; }
+async function renderHome(){
+  document.getElementById('homeTitle').textContent='Olá, '+(currentProfile?.nome?.split(' ')[0]||'')+' 👋';
+  document.getElementById('homeSub').textContent=currentTipo==='paciente' ? ('Seu convênio: '+(currentProfile?.convenio||'Particular / Sem convênio')+' • '+currentTipo) : ('CRN: '+(currentProfile?.crn||'')+' • Valor particular: '+fmtBRL(currentProfile?.valor_particular||0));
+  const nutris=await fetchNutris();
+  document.getElementById('homeNutriTitle').textContent=currentTipo==='paciente' ? 'Nutricionistas disponíveis' : 'Nutricionistas cadastradas (você está aqui)';
+  document.getElementById('homeNutris').innerHTML=nutris.length? nutris.map(n=>{const convs=nutriConvenios(n);return `<div class="card"><strong>${n.nome}</strong><div style="font-size:.82rem;color:#64748b">${n.crn} • ${n.especialidade}</div><div style="font-size:.84rem;margin:8px 0">${n.aceita_convenio?('✅ Convênios: '+(convs.join(', ')||'—')):'⚠️ Só particular'}</div><div><strong>Particular: ${fmtBRL(n.valor_particular)}</strong></div>${currentTipo==='paciente'?`<button class="btn btn-p" style="margin-top:10px" onclick="startBooking('${n.id}')">Agendar com ${n.nome.split(' ')[0]} →</button>`:''}</div>`}).join('') : '<div class="card">Nenhuma nutricionista ainda.</div>';
+  if(currentTipo==='paciente'){ const {data}=await supabaseClient.from('agendamentos').select('*').eq('paciente_id',currentUser.id).eq('status','confirmada').order('data').limit(1); document.getElementById('homeNext').textContent=data&&data.length?('Próxima: '+fmtDate(data[0].data)+' às '+data[0].hora+' com '+data[0].nutricionista_nome) : 'Nenhuma consulta futura. Agende agora.'; document.getElementById('nutriAgendamentosBox').classList.add('hidden'); }
+  else{ document.getElementById('homeNext').textContent='Veja abaixo seus agendamentos recebidos.'; document.getElementById('nutriAgendamentosBox').classList.remove('hidden'); renderNutriAppts(); }
+}
+async function renderNutriAppts(){
+  const {data}=await supabaseClient.from('agendamentos').select('*, avaliacoes(*)').eq('nutricionista_id',currentUser.id).order('data').order('hora');
+  const el=document.getElementById('nutriAgendamentos'); const list=data||[];
+  if(!list.length){el.innerHTML='<div class="card">Nenhum agendamento ainda.</div>';return;}
+  el.innerHTML=list.map(a=>`<div class="card" style="margin-bottom:10px"><strong>${a.paciente_nome}</strong> • ${fmtDate(a.data)} às ${a.hora} • ${a.tipo==='convenio'?('Convênio — '+a.convenio+' • R$ 0'):('Particular — '+fmtBRL(a.valor))} • <span class="badge ${a.status==='confirmada'?'':'badge-b'}">${a.status}</span>${a.avaliacoes?.length?`<div>⭐ ${a.avaliacoes[0].nota}/5 — ${a.avaliacoes[0].comentario||''}</div>`:''}<div style="display:flex;gap:8px;margin-top:10px">${a.status==='confirmada'?`<button class="btn btn-p" onclick="markDone('${a.id}')">✅ Marcar como realizada</button><button class="btn btn-d" onclick="cancelAppt('${a.id}')">Cancelar</button>`:''}${a.status==='realizada'&&!a.avaliacao_liberada?`<button class="btn btn-s" onclick="liberarAval('${a.id}')">Liberar avaliação</button>`:''}</div></div>`).join('');
+}
+async function renderBookNutris(){ const nutris=await fetchNutris(); document.getElementById('bookStep1').classList.remove('hidden'); document.getElementById('bookStep2').classList.add('hidden'); document.getElementById('bookStep3').classList.add('hidden'); document.getElementById('bookStep4').classList.add('hidden'); document.getElementById('bookNutris').innerHTML=nutris.map(n=>{const convs=nutriConvenios(n);return `<div class="card"><strong>${n.nome}</strong><div style="font-size:.82rem;color:#64748b">${n.crn} • ${n.especialidade}</div><div style="font-size:.84rem;margin:8px 0">${n.aceita_convenio?('✅ '+convs.join(', ')):'⚠️ Só particular'}</div><div><strong>Particular: ${fmtBRL(n.valor_particular)}</strong></div><button class="btn btn-p" style="margin-top:10px" onclick="startBooking('${n.id}')">Escolher →</button></div>`}).join(''); }
+async function startBooking(nutriId){ if(currentTipo!=='paciente'){alert('Entre como paciente para agendar.');return;} const nutris=await fetchNutris(); const n=nutris.find(x=>x.id===nutriId); booking={nutri:n,date:null,time:null,convenio:currentProfile?.convenio||'',plano:currentProfile?.plano||'',tipo:'',valor:0}; showView('agendar'); document.getElementById('bookStep1').classList.add('hidden'); document.getElementById('bookStep2').classList.remove('hidden'); document.getElementById('bookNutriTitle').textContent=n.nome+' — Particular '+fmtBRL(n.valor_particular); renderDays(); document.getElementById('bookSlots').innerHTML='<p style="color:#64748b">Escolha um dia.</p>'; document.getElementById('btnToConvenio').disabled=true; }
+function nextDays(){const out=[];const t=new Date();for(let i=1;i<=14;i++){const d=new Date(t);d.setDate(t.getDate()+i);if(d.getDay()===0)continue;const iso=d.toISOString().slice(0,10);out.push({iso,label:d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})});}return out;}
+function renderDays(){document.getElementById('bookDays').innerHTML=nextDays().map(d=>`<button class="day ${booking.date===d.iso?'sel':''}" onclick="selectDay('${d.iso}')">${d.label}<br><span style="font-size:.72rem">${fmtDate(d.iso)}</span></button>`).join('');}
+async function selectDay(iso){booking.date=iso;booking.time=null;renderDays(); const slots=['08:00','09:00','10:00','11:00','14:00','15:00','16:00','17:00']; const {data}=await supabaseClient.from('agendamentos').select('hora').eq('nutricionista_id',booking.nutri.id).eq('data',iso).neq('status','cancelada'); const taken=new Set((data||[]).map(r=>r.hora)); document.getElementById('bookSlots').innerHTML=slots.map(s=>`<button class="slot ${taken.has(s)?'occ':''}" ${taken.has(s)?'disabled':''} onclick="selectSlot('${s}')">${s}</button>`).join(''); document.getElementById('btnToConvenio').disabled=true;}
+function selectSlot(t){booking.time=t;document.querySelectorAll('#bookSlots .slot').forEach(b=>b.classList.toggle('sel',b.textContent.trim()===t));document.getElementById('btnToConvenio').disabled=false;}
+function goToConvenio(){document.getElementById('bookStep2').classList.add('hidden');document.getElementById('bookStep3').classList.remove('hidden');const convs=['','Unimed','Amil','Bradesco Saúde','SulAmérica','Hapvida','NotreDame Intermédica','Porto Seguro Saúde','Allianz Saúde','Care Plus','Omint','GEAP','Outro'];document.getElementById('bookConvSelect').innerHTML=convs.map(c=>`<option value="${c}" ${c===booking.convenio?'selected':''}>${c===''?'Não tenho / Particular':c}</option>`).join('');document.getElementById('bookPlano').value=booking.plano||'';document.getElementById('bookConvInfo').textContent=booking.nutri.nome+' • '+fmtDate(booking.date)+' às '+booking.time+' • '+(booking.nutri.aceita_convenio?('Aceita: '+nutriConvenios(booking.nutri).join(', ')):'Só particular');onConvChange();}
+function onConvChange(){const conv=document.getElementById('bookConvSelect').value;const plano=document.getElementById('bookPlano').value.trim();booking.convenio=conv;booking.plano=plano;const n=booking.nutri;const res=document.getElementById('bookConvResult');const pay=document.getElementById('payBox');const btnC=document.getElementById('btnConfirmConv');if(!conv){booking.tipo='particular';booking.valor=n.valor_particular;res.innerHTML=`<div class="alert alert-info"><b>Particular.</b> Valor: ${fmtBRL(booking.valor)}. Siga para pagamento.</div>`;pay.classList.remove('hidden');btnC.classList.add('hidden');document.getElementById('payValor').textContent=fmtBRL(booking.valor);return;}const accepts=n.aceita_convenio && nutriConvenios(n).includes(conv);if(accepts){booking.tipo='convenio';booking.valor=0;res.innerHTML=`<div class="alert alert-ok"><b>✅ Convênio aceito!</b> ${n.nome} atende <b>${conv}</b>. Sem pagamento.</div>`;pay.classList.add('hidden');btnC.classList.remove('hidden');}else{booking.tipo='particular';booking.valor=n.valor_particular;res.innerHTML=`<div class="alert alert-err"><b>Esta nutricionista só atende particular</b><br>Ela ${n.aceita_convenio?('não atende '+conv+'. Atende: '+nutriConvenios(n).join(', ')):'não aceita convênio.'} Você será direcionado para pagamento de <b>${fmtBRL(booking.valor)}</b>.</div>`;pay.classList.remove('hidden');btnC.classList.add('hidden');document.getElementById('payValor').textContent=fmtBRL(booking.valor);}}
+function backToNutris(){renderBookNutris();} function backToSlots(){document.getElementById('bookStep3').classList.add('hidden');document.getElementById('bookStep2').classList.remove('hidden');}
+async function createAppt(){ const payload={nutricionista_id:booking.nutri.id,paciente_id:currentUser.id,paciente_nome:currentProfile.nome,nutricionista_nome:booking.nutri.nome,data:booking.date,hora:booking.time,tipo:booking.tipo,convenio:booking.tipo==='convenio'?booking.convenio:'',plano:booking.plano||'',valor:booking.valor,status:'confirmada',pagamento_status:booking.tipo==='convenio'?'isento':'aprovado',avaliacao_liberada:false}; const {data,error}=await supabaseClient.from('agendamentos').insert(payload).select().single(); if(error){alert('Erro ao agendar: '+error.message);return null;} if(booking.tipo==='particular'){await supabaseClient.from('pagamentos').insert({agendamento_id:data.id,metodo:document.getElementById('payMethod').value,valor:booking.valor,status:'aprovado'});} return data; }
+async function confirmConvenio(){ const appt=await createAppt(); if(appt) showReceipt(appt); }
+async function payAndConfirm(){ const btn=document.getElementById('payBtn'); btn.disabled=true; btn.textContent='Processando pagamento...'; document.getElementById('payStatus').textContent='Aguardando aprovação...'; await new Promise(r=>setTimeout(r,1200)); const appt=await createAppt(); btn.disabled=false; btn.textContent='Pagar e confirmar →'; if(appt) showReceipt(appt); }
+function showReceipt(a){ document.getElementById('bookStep3').classList.add('hidden'); document.getElementById('bookStep4').classList.remove('hidden'); const isConv=a.tipo==='convenio'; document.getElementById('receiptArea').innerHTML=`<div class="card" style="max-width:560px;margin:0 auto"><div style="text-align:center"><div style="font-size:32px">🧾</div><h3>Comprovante de Agendamento</h3><p style="font-size:.84rem;color:#64748b">NutriFlow • ${a.id}</p></div><div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #e2e8f0"><span>Paciente</span><strong>${a.paciente_nome}</strong></div><div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #e2e8f0"><span>Nutricionista</span><strong>${a.nutricionista_nome}</strong></div><div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #e2e8f0"><span>Data</span><strong>${fmtDate(a.data)}</strong></div><div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #e2e8f0"><span>Horário</span><strong>${a.hora}</strong></div><div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #e2e8f0"><span>Tipo</span><strong>${isConv?('Convênio — '+a.convenio):'Particular'}</strong></div><div style="display:flex;justify-content:space-between;padding:8px 0"><span>Valor</span><strong>${isConv?'R$ 0,00':fmtBRL(a.valor)}</strong></div><div class="alert alert-ok">✅ Comprovante salvo no banco e enviado para você e para a nutricionista (e-mail no Passo 6).</div><button class="btn btn-p" onclick="window.print()">🖨 Imprimir / Salvar PDF</button> <button class="btn btn-s" onclick="showView('minhas')">Ver minhas consultas →</button></div>`; }
+async function renderMyAppts(){ const {data}=await supabaseClient.from('agendamentos').select('*, avaliacoes(*)').eq('paciente_id',currentUser.id).order('data',{ascending:false}); const el=document.getElementById('myAppts'); const list=data||[]; if(!list.length){el.innerHTML='<div class="card">Nenhuma consulta ainda. <button class="btn btn-p" onclick="showView(\'agendar\')">Agendar agora</button></div>';return;} el.innerHTML=list.map(a=>{const canEval=a.status==='realizada'&&!a.avaliacoes?.length;return `<div class="card"><strong>${a.nutricionista_nome}</strong> • ${fmtDate(a.data)} às ${a.hora}<br><span style="font-size:.84rem;color:#64748b">${a.tipo==='convenio'?('Convênio — '+a.convenio):('Particular — '+fmtBRL(a.valor))} • Status: <b>${a.status}</b></span><br>${a.status==='realizada'&&!a.avaliacoes?.length?(a.avaliacao_liberada?'<span style="color:#065f46">Avaliação liberada ✅</span>':'<span style="color:#92400e">Ainda não liberada — você pode avaliar mesmo assim.</span>'):''}${a.avaliacoes?.length?`<div>⭐ ${a.avaliacoes[0].nota}/5 — ${a.avaliacoes[0].comentario||''}</div>`:''}<div style="display:flex;gap:8px;margin-top:10px">${a.status==='confirmada'?`<button class="btn btn-d" onclick="cancelAppt('${a.id}')">Cancelar</button>`:''}${canEval?`<button class="btn btn-p" onclick="openEval('${a.id}','${a.nutricionista_nome}','${a.data}','${a.hora}',${a.avaliacao_liberada})">⭐ Avaliar</button>`:''}</div></div>`}).join(''); }
+async function cancelAppt(id){ if(!confirm('Cancelar?'))return; await supabaseClient.from('agendamentos').update({status:'cancelada'}).eq('id',id); renderMyAppts(); renderHome(); }
+async function markDone(id){ await supabaseClient.from('agendamentos').update({status:'realizada',avaliacao_liberada:true}).eq('id',id); renderNutriAppts(); alert('Consulta marcada como realizada. Avaliação liberada!'); }
+async function liberarAval(id){ await supabaseClient.from('agendamentos').update({avaliacao_liberada:true}).eq('id',id); renderNutriAppts(); }
+function openEval(id,nome,data,hora,lib){ evalTarget=id; evalStars=5; setStars(5); document.getElementById('evalText').textContent=`Avalie ${nome} em ${fmtDate(data)} às ${hora}.`; if(!lib){ if(!confirm('A nutricionista ainda não liberou a avaliação. Deseja avaliar mesmo assim?')) return; } document.getElementById('evalBox').classList.remove('hidden'); document.getElementById('evalBox').scrollIntoView({behavior:'smooth'}); }
+function setStars(v){ evalStars=v; document.querySelectorAll('#evalStars span').forEach((s,i)=>s.classList.toggle('on',i<v)); }
+async function submitEval(){ const comment=document.getElementById('evalComment').value.trim(); const {error}=await supabaseClient.from('avaliacoes').insert({agendamento_id:evalTarget,nota:evalStars,comentario:comment}); if(error){alert('Erro: '+error.message);return;} document.getElementById('evalBox').classList.add('hidden'); alert('Obrigado pela avaliação!'); renderMyAppts(); }
+init();
+</script>
+</body>
+</html>
