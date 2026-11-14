@@ -245,6 +245,10 @@ th{background:var(--bg-subtle);font-weight:700;color:var(--text-secondary);font-
         <button id="tabLogin" class="active" onclick="showAuthForm('login')">Entrar</button>
         <button id="tabRegister" onclick="showAuthForm('register')">Criar conta</button>
       </div>
+      <div style="margin:12px 0 4px;padding:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;text-align:center">
+        <p style="font-size:.82rem;color:#065f46;margin:0 0 8px;font-weight:600">E paciente? Acesse sua area aqui, em qualquer aba.</p>
+        <button class="btn btn-primary" style="width:100%;padding:10px" onclick="openPatientAuth()">Sou paciente - Entrar / Cadastrar</button>
+      </div>
       <!-- LOGIN -->
       <div id="loginForm">
         <div class="form-group"><label>E-mail</label><input id="loginEmail" class="form-control" type="email" placeholder="voce@exemplo.com" autocomplete="email"></div>
@@ -529,8 +533,17 @@ let editingProtocolId = null;
 function $(id){ return document.getElementById(id); }
 function showToast(msg, type='success'){ const c=$('toastContainer'); const t=document.createElement('div'); t.className='toast '+type; t.textContent=msg; c.appendChild(t); setTimeout(()=>t.remove(), 3500); }
 function showAuthMsg(msg, ok=false){ const e=$('authError'), s=$('authSuccess'); if(ok){ s.style.display='block'; s.textContent=msg; e.style.display='none'; } else { e.style.display='block'; e.textContent=msg; s.style.display='none'; } setTimeout(()=>{ e.style.display='none'; s.style.display='none'; }, 6000); }
-function openModal(id){ $(id).classList.add('open'); }
-function closeModal(id){ $(id).classList.remove('open'); }
+function openModal(id){
+  const el=$(id); if(!el) return;
+  el.classList.add('open');
+  el.style.display='flex'; el.style.opacity='1'; el.style.visibility='visible'; el.style.pointerEvents='auto';
+}
+function closeModal(id){
+  const el=$(id); if(!el) return;
+  el.classList.remove('open');
+  el.style.display='none';
+  setTimeout(()=>{ if(el && !el.classList.contains('open')) el.style.display=''; }, 200);
+}
 function toggleSidebar(){ $('sidebar').classList.toggle('open'); $('sidebarOverlay').classList.toggle('open'); }
 
 // ============ AUTH - NUTRICIONISTA ============
@@ -619,8 +632,18 @@ function goToLoginWithRecoveredEmail(){ showAuthForm('login'); }
 function openRecoveryMailto(){ window.location.href='mailto:suporte@nutriflow.app?subject=Recuperacao de acesso'; }
 
 // ============ AUTH - PACIENTE ============
-function openPatientAuth(){ openModal('patientAuthModal'); loadConvenioOptionsForPatient(); }
-function closePatientAuth(){ closeModal('patientAuthModal'); }
+function openPatientAuth(){
+  try{ forceCloseAllModals(); }catch(e){}
+  const m=document.getElementById('patientAuthModal');
+  if(m){ m.classList.add('open'); m.style.display='flex'; m.style.opacity='1'; m.style.visibility='visible'; m.style.pointerEvents='auto'; }
+  try{ showPatientAuthForm('login'); }catch(e){}
+  try{ loadConvenioOptionsForPatient(); }catch(e){ console.log('loadConvenio paciente erro', e); }
+}
+function closePatientAuth(){
+  const m=document.getElementById('patientAuthModal');
+  if(m){ m.classList.remove('open'); m.style.display='none'; setTimeout(()=>{ if(m && !m.classList.contains('open')) m.style.display=''; }, 200); }
+  else { closeModal('patientAuthModal'); }
+}
 function showPatientAuthForm(mode){
   $('patientLoginForm').style.display = mode==='login' ? 'block':'none';
   $('patientRegisterForm').style.display = mode==='register' ? 'block':'none';
@@ -1191,7 +1214,7 @@ async function applyGeneratedPlanToPatient(){
 
 // ============ PACIENTE - HOME / AGENDAMENTO ============
 function forceCloseAllModals(){
-  document.querySelectorAll('.modal-backdrop').forEach(m=>m.classList.remove('open'));
+  document.querySelectorAll('.modal-backdrop').forEach(m=>{ m.classList.remove('open'); m.style.display=''; m.style.opacity=''; m.style.visibility=''; m.style.pointerEvents=''; });
   const go=document.getElementById('goodbyeOverlay'); if(go) go.style.display='none';
 }
 function showPatientView(view){
