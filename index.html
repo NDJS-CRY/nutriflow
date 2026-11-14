@@ -1119,10 +1119,10 @@ function friendlyGeminiError(msg){ if(msg.includes('401')||msg.includes('autoriz
 async function callGeminiViaEdgeFunction(prompt, model){
   const sess = await supabaseClient.auth.getSession();
   const token = sess.data.session ? sess.data.session.access_token : '';
-  if(!token) throw new Error('Voce precisa estar logada para usar a IA.');
+  if(!token) throw new Error('Voce precisa estar logada para usar a IA. Faca login de novo.');
   const res = await fetchWithTimeout(SUPABASE_URL + '/functions/v1/gemini-diet', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SUPABASE_PUBLISHABLE_KEY },
     body: JSON.stringify({ prompt: prompt, model: model || 'gemini-2.5-flash' })
   }, 60000);
   const data = await res.json().catch(()=>({}));
